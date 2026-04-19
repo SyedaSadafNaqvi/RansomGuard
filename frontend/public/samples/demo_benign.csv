@@ -1,0 +1,52 @@
+﻿Process Name,Operation,Relative Time,Duration,PID,Result,Detail,Image Path,TID,Path
+explorer.exe,ReadFile,0.00,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\file.txt
+explorer.exe,ReadFile,0.01,0.001,1234,SUCCESS,Offset: 512,C:\Windows\explorer.exe,5678,C:\Users\Documents\file.txt
+explorer.exe,CloseFile,0.02,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\file.txt
+explorer.exe,CreateFile,0.03,0.001,1234,SUCCESS,Desired Access: Read,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,ReadFile,0.04,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,QueryBasicInformationFile,0.05,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,QueryStandardInformationFile,0.06,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,ReadFile,0.07,0.001,1234,SUCCESS,Offset: 1024,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,ReadFile,0.08,0.001,1234,SUCCESS,Offset: 2048,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,CloseFile,0.09,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\data.txt
+explorer.exe,RegOpenKey,0.10,0.000,1234,SUCCESS,HKCU\Software,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,RegQueryValue,0.11,0.000,1234,SUCCESS,QueryValue,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft\Windows
+explorer.exe,RegQueryKey,0.12,0.000,1234,SUCCESS,QueryKey,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft\Windows
+explorer.exe,RegCloseKey,0.13,0.000,1234,SUCCESS,CloseKey,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,CreateFile,0.14,0.001,1234,SUCCESS,Desired Access: Read,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,ReadFile,0.15,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,ReadFile,0.16,0.001,1234,SUCCESS,Offset: 512,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,QueryStandardInformationFile,0.17,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,ReadFile,0.18,0.001,1234,SUCCESS,Offset: 1024,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,CloseFile,0.19,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\notes.txt
+explorer.exe,RegOpenKey,0.20,0.000,1234,SUCCESS,HKCU\Software,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,RegQueryValue,0.21,0.000,1234,SUCCESS,QueryValue,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft\Windows
+explorer.exe,RegQueryKey,0.22,0.000,1234,SUCCESS,QueryKey,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,RegEnumValue,0.23,0.000,1234,SUCCESS,EnumValue,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,RegCloseKey,0.24,0.000,1234,SUCCESS,CloseKey,C:\Windows\explorer.exe,5678,HKCU\Software\Microsoft
+explorer.exe,CreateFile,0.25,0.001,1234,SUCCESS,Desired Access: Read,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,ReadFile,0.26,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,ReadFile,0.27,0.001,1234,SUCCESS,Offset: 512,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,QueryBasicInformationFile,0.28,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,ReadFile,0.29,0.001,1234,SUCCESS,Offset: 1024,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,ReadFile,0.30,0.001,1234,SUCCESS,Offset: 1536,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,CloseFile,0.31,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\log.txt
+explorer.exe,QueryOpen,0.32,0.000,1234,SUCCESS,QueryOpen,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,CreateFile,0.33,0.001,1234,SUCCESS,Desired Access: Read,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,ReadFile,0.34,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,ReadFile,0.35,0.001,1234,SUCCESS,Offset: 512,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,QueryStandardInformationFile,0.36,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,CloseFile,0.37,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\config.ini
+explorer.exe,RegOpenKey,0.38,0.000,1234,SUCCESS,HKLM\Software,C:\Windows\explorer.exe,5678,HKLM\Software\Microsoft
+explorer.exe,RegQueryValue,0.39,0.000,1234,SUCCESS,QueryValue,C:\Windows\explorer.exe,5678,HKLM\Software\Microsoft
+explorer.exe,RegQueryKey,0.40,0.000,1234,SUCCESS,QueryKey,C:\Windows\explorer.exe,5678,HKLM\Software\Microsoft
+explorer.exe,RegEnumKey,0.41,0.000,1234,SUCCESS,EnumKey,C:\Windows\explorer.exe,5678,HKLM\Software\Microsoft
+explorer.exe,RegCloseKey,0.42,0.000,1234,SUCCESS,CloseKey,C:\Windows\explorer.exe,5678,HKLM\Software\Microsoft
+explorer.exe,CreateFile,0.43,0.001,1234,SUCCESS,Desired Access: Read,C:\Windows\explorer.exe,5678,C:\Windows\System32\kernel32.dll
+explorer.exe,CreateFileMapping,0.44,0.000,1234,SUCCESS,Mapping,C:\Windows\explorer.exe,5678,C:\Windows\System32\kernel32.dll
+explorer.exe,QueryBasicInformationFile,0.45,0.000,1234,SUCCESS,FileInfo,C:\Windows\explorer.exe,5678,C:\Windows\System32\kernel32.dll
+explorer.exe,CloseFile,0.46,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Windows\System32\kernel32.dll
+explorer.exe,ReadFile,0.47,0.001,1234,SUCCESS,Offset: 0,C:\Windows\explorer.exe,5678,C:\Users\Documents\readme.txt
+explorer.exe,ReadFile,0.48,0.001,1234,SUCCESS,Offset: 512,C:\Windows\explorer.exe,5678,C:\Users\Documents\readme.txt
+explorer.exe,ReadFile,0.49,0.001,1234,SUCCESS,Offset: 1024,C:\Windows\explorer.exe,5678,C:\Users\Documents\readme.txt
+explorer.exe,CloseFile,0.50,0.000,1234,SUCCESS,Close,C:\Windows\explorer.exe,5678,C:\Users\Documents\readme.txt

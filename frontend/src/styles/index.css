@@ -1,0 +1,36 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(18, 18, 28, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12121c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00d9ff;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00ffc8;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
