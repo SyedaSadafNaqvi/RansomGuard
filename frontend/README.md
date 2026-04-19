@@ -7,13 +7,13 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css)
 
-> **Final Year Project — AI-powered ransomware detection using a hybrid deep learning approach (ResNet-18 + GRU) with a real-time interactive web dashboard.**
+> **Final Year Project — Multi-modal Deep Learning Approach (ResNet-18 + GRU) with a real-time interactive web dashboard.**
 
 ---
 
 ## 📌 Overview
 
-RansomGuard AI is a hybrid ransomware detection system that combines:
+RansomGuard AI is a multimodal ransomware detection system that combines:
 
 - 🖼️ **Visual Analysis** — BytePlot image classification using ResNet-18
 - 📄 **Behavioral Analysis** — System call sequence analysis using a GRU Network
