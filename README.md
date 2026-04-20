@@ -17,7 +17,7 @@ RansomGuard AI is a multimodal ransomware detection system that combines:
 
 - 🖼️ **Visual Analysis** — BytePlot image classification using ResNet-18
 - 📄 **Behavioral Analysis** — System call sequence analysis using a GRU Network
-- 🔀 **Late Fusion** — Combining both models for a final prediction (30/70 weighting)
+- 🔀 **Late Fusion** — Combining both models for a final prediction (40/60 weighting)
 
 The web dashboard bridges the gap between complex deep learning models and end-users by presenting results in a **clear, intuitive, and professional interface** with full AI explainability.
 
