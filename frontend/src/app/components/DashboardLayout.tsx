@@ -89,7 +89,7 @@ export function DashboardLayout() {
                 </div>
                 <div>
                   <h2 className="font-bold text-lg text-white group-hover:text-[#00d9ff] transition-colors">
-                    RansomGuard AI
+                    RansomGuard
                   </h2>
                   <p className="text-xs text-gray-500">Detection System</p>
                 </div>

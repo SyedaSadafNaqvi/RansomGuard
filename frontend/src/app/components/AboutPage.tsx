@@ -67,7 +67,7 @@ export function AboutPage() {
         </div>
 
         <p className="text-gray-300 leading-relaxed mb-4">
-          RansomGuard AI is a hybrid ransomware detection system that combines
+          RansomGuard is a hybrid ransomware detection system that combines
           visual pattern recognition and behavioral sequence analysis.
           The system processes executable representations and system call traces
           to determine whether a file exhibits malicious characteristics.

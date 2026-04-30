@@ -53,7 +53,7 @@ export function LandingPage() {
               <Shield className="w-6 h-6 text-[#0a0a0f]" />
             </div>
             <span className="text-xl font-bold text-white">
-              RansomGuard<span className="text-[#00d9ff]">AI</span>
+              RansomGuard<span className="text-[#00d9ff]"></span>
             </span>
           </div>
           <Button

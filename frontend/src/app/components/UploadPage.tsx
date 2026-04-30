@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Upload,
-  File,
   X,
   Loader2,
   CheckCircle,
@@ -12,143 +11,218 @@ import {
   Image as ImageIcon,
   FileText,
   Eye,
+  Info,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { useNavigate } from "react-router-dom";
-import { apiService, PredictionResponse } from "../../services/api";
+import {
+  apiService,
+  PredictionResponse,
+  APIError,
+} from "../../services/api";
 import { historyService } from "../../services/history";
 import toast from "react-hot-toast";
 
+// ── ALLOWED EXTENSIONS ──────────────────────────
+const ALLOWED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".bmp"];
+const ALLOWED_CSV_EXTENSIONS = [".csv"];
+const ALL_ALLOWED = [
+  ...ALLOWED_IMAGE_EXTENSIONS,
+  ...ALLOWED_CSV_EXTENSIONS,
+];
+
+// ── FRONTEND VALIDATION ─────────────────────────
+interface FrontendValidation {
+  isValid: boolean;
+  error?: string;
+  warning?: string;
+  fileType: "image" | "csv" | "unknown";
+}
+
+function validateFile(file: File): FrontendValidation {
+  const fileName = file.name.toLowerCase();
+
+  const hasValidExt = ALL_ALLOWED.some((ext) =>
+    fileName.endsWith(ext)
+  );
+
+  if (!hasValidExt) {
+    return {
+      isValid: false,
+      fileType: "unknown",
+      error: `Unsupported file type. Please upload a byteplot image (PNG, JPG, BMP) or behavioral data (CSV).`,
+    };
+  }
+
+  const isImage = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
+    fileName.endsWith(ext)
+  );
+  const isCsv = ALLOWED_CSV_EXTENSIONS.some((ext) =>
+    fileName.endsWith(ext)
+  );
+  const fileType: "image" | "csv" | "unknown" = isImage
+    ? "image"
+    : isCsv
+    ? "csv"
+    : "unknown";
+
+  // File size check (50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    return {
+      isValid: false,
+      fileType,
+      error: `File size exceeds 50MB limit.`,
+    };
+  }
+
+  // Too small
+  if (file.size < 100) {
+    return {
+      isValid: false,
+      fileType,
+      error: "File is too small to be valid.",
+    };
+  }
+
+  // Soft warning for images
+  if (isImage) {
+    return {
+      isValid: true,
+      fileType,
+      warning:
+        "Make sure this is a byteplot visualization of an executable file. Regular photos or screenshots will be rejected.",
+    };
+  }
+
+  return { isValid: true, fileType };
+}
+
+// ── COMPONENT ───────────────────────────────────
 export function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<
+    "image" | "csv" | "unknown"
+  >("unknown");
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    null
+  );
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [backendError, setBackendError] = useState<{
+    message: string;
+    type: string;
+    suggestion?: string;
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+  // ── DRAG & DROP ─────────────────────────────────
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleDragLeave = () => setIsDragging(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) {
-      validateAndSetFile(droppedFile);
-    }
+    if (droppedFile) validateAndSetFile(droppedFile);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      validateAndSetFile(selectedFile);
-    }
+    if (selectedFile) validateAndSetFile(selectedFile);
   };
 
+  // ── VALIDATE AND SET FILE ───────────────────────
   const validateAndSetFile = (selectedFile: File) => {
-    const fileName = selectedFile.name.toLowerCase();
-    const validExtensions = [
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".bmp",
-      ".gif",
-      ".csv",
-      ".txt",
-    ];
-    const isValid = validExtensions.some((ext) => fileName.endsWith(ext));
+    setError(null);
+    setWarning(null);
+    setBackendError(null);
+    setImagePreview(null);
+    setCsvPreview([]);
 
-    if (!isValid) {
-      setError(
-        "Unsupported file type. Please upload an image (PNG, JPG) or CSV/TXT file."
-      );
-      toast.error("Unsupported file type");
+    const validation = validateFile(selectedFile);
+
+    if (!validation.isValid) {
+      setError(validation.error || "Invalid file.");
+      toast.error(validation.error || "Invalid file.");
       return;
     }
 
+    if (validation.warning) {
+      setWarning(validation.warning);
+    }
+
     setFile(selectedFile);
-    setError(null);
+    setFileType(validation.fileType);
     toast.success(`File "${selectedFile.name}" selected`);
 
-    // Generate preview
-    const fileType = getFileType(selectedFile.name);
-
-    if (fileType === "image") {
+    // Preview
+    if (validation.fileType === "image") {
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(selectedFile);
-      setCsvPreview([]);
-    } else if (fileType === "csv") {
+    } else if (validation.fileType === "csv") {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        const lines = text.split("\n").slice(0, 6); // header + 5 rows
+        const lines = text.split("\n").slice(0, 6);
         const parsed = lines
           .filter((line) => line.trim())
-          .map((line) => line.split(",").map((cell) => cell.trim()));
+          .map((line) =>
+            line.split(",").map((cell) => cell.trim())
+          );
         setCsvPreview(parsed);
       };
       reader.readAsText(selectedFile);
-      setImagePreview(null);
     }
   };
 
+  // ── REMOVE FILE ─────────────────────────────────
   const handleRemoveFile = () => {
     setFile(null);
+    setFileType("unknown");
     setImagePreview(null);
     setCsvPreview([]);
     setUploadProgress(0);
     setIsUploading(false);
     setIsAnalyzing(false);
     setError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setWarning(null);
+    setBackendError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const getFileType = (
-    fileName: string
-  ): "image" | "csv" | "unknown" => {
-    const lower = fileName.toLowerCase();
-    if (
-      lower.endsWith(".png") ||
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".jpeg") ||
-      lower.endsWith(".bmp") ||
-      lower.endsWith(".gif")
-    ) {
-      return "image";
-    }
-    if (lower.endsWith(".csv") || lower.endsWith(".txt")) {
-      return "csv";
-    }
-    return "unknown";
-  };
-
+  // ── FORMAT FILE SIZE ────────────────────────────
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+    if (bytes < 1024 * 1024)
+      return (bytes / 1024).toFixed(2) + " KB";
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   };
 
+  // ── ANALYZE ─────────────────────────────────────
   const handleAnalyze = async () => {
     if (!file) return;
 
     setError(null);
+    setWarning(null);
+    setBackendError(null);
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -157,9 +231,7 @@ export function UploadPage() {
     try {
       const result: PredictionResponse = await apiService.predict(
         file,
-        (progress) => {
-          setUploadProgress(progress);
-        }
+        (progress) => setUploadProgress(progress)
       );
 
       setIsUploading(false);
@@ -167,18 +239,16 @@ export function UploadPage() {
 
       const fName = file.name;
       const fSize = formatFileSize(file.size);
-      const fType = getFileType(file.name);
 
       historyService.addScan({
         fileName: fName,
         fileSize: fSize,
-        fileType: fType,
+        fileType: fileType,
         result,
       });
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Update toast based on result
       if (result.prediction === "Malware") {
         toast.error("⚠️ Malware Detected!", { id: analyzeToast });
       } else {
@@ -190,28 +260,54 @@ export function UploadPage() {
           result,
           fileName: fName,
           fileSize: fSize,
-          fileType: fType,
+          fileType: fileType,
         },
       });
-    } catch (err) {
+    } catch (err: unknown) {
       setIsUploading(false);
       setIsAnalyzing(false);
-      toast.error("Analysis failed. Please try again.", {
-        id: analyzeToast,
-      });
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Analysis failed. Please try again."
-      );
+
+      if (err instanceof APIError) {
+        if (
+          err.error_type === "not_byteplot" ||
+          err.error_type === "not_behavioral" ||
+          err.error_type === "invalid_file"
+        ) {
+          setBackendError({
+            message: err.message,
+            type: err.error_type,
+            suggestion: err.suggestion,
+          });
+          toast.error(
+            err.error_type === "not_byteplot"
+              ? "Invalid image — not a byteplot"
+              : err.error_type === "not_behavioral"
+              ? "Invalid CSV — not a behavioral log"
+              : "Invalid file detected",
+            { id: analyzeToast }
+          );
+        } else if (err.error_type === "network_error") {
+          setError(
+            "Cannot connect to backend server. Please make sure Flask is running."
+          );
+          toast.error("Backend offline", { id: analyzeToast });
+        } else {
+          setError(err.message);
+          toast.error("Analysis failed.", { id: analyzeToast });
+        }
+      } else if (err instanceof Error) {
+        setError(err.message);
+        toast.error("Analysis failed.", { id: analyzeToast });
+      } else {
+        setError("Analysis failed. Please try again.");
+        toast.error("Analysis failed.", { id: analyzeToast });
+      }
     }
   };
 
   const getFileIcon = () => {
     if (!file) return null;
-    const fileType = getFileType(file.name);
-    if (fileType === "image") return "🖼️";
-    return "📄";
+    return fileType === "image" ? "🖼️" : "📄";
   };
 
   return (
@@ -226,11 +322,12 @@ export function UploadPage() {
           Upload File for Analysis
         </h1>
         <p className="text-gray-400">
-          Upload a file to detect potential ransomware threats
+          Upload a byteplot image or behavioral CSV to detect
+          ransomware threats
         </p>
       </motion.div>
 
-      {/* Error Alert */}
+      {/* General Error */}
       <AnimatePresence>
         {error && (
           <motion.div
@@ -250,6 +347,109 @@ export function UploadPage() {
             >
               <X className="w-4 h-4" />
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Warning */}
+      <AnimatePresence>
+        {warning && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-start gap-3"
+          >
+            <Info className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-yellow-400 font-medium">Notice</p>
+              <p className="text-yellow-400/80 text-sm">
+                {warning}
+              </p>
+            </div>
+            <button
+              onClick={() => setWarning(null)}
+              className="text-yellow-400 hover:text-yellow-400/80"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Backend Error */}
+      <AnimatePresence>
+        {backendError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-5 rounded-xl bg-orange-500/10 border border-orange-500/30"
+          >
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-6 h-6 text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-orange-400 font-semibold text-base mb-1">
+                  {backendError.type === "not_byteplot"
+                    ? "Invalid Image Type"
+                    : backendError.type === "not_behavioral"
+                    ? "Invalid CSV File"
+                    : "File Validation Failed"}
+                </p>
+                <p className="text-orange-300/80 text-sm mb-3">
+                  {backendError.message}
+                </p>
+                {backendError.suggestion && (
+                  <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <p className="text-orange-300 text-sm">
+                      <span className="font-medium">
+                        💡 How to fix:{" "}
+                      </span>
+                      {backendError.suggestion}
+                    </p>
+                  </div>
+                )}
+
+                {/* Byteplot explanation */}
+                {backendError.type === "not_byteplot" && (
+                  <div className="mt-3 p-3 rounded-lg bg-[#1a1a24] border border-[#00d9ff]/20">
+                    <p className="text-[#00d9ff] text-xs font-medium mb-1">
+                      What is a Byteplot Image?
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                      A byteplot is a grayscale visualization of
+                      an executable file's binary data. Each pixel
+                      represents a byte value (0–255). They look
+                      like grayscale patterns with complex textures
+                      — NOT regular photos or screenshots.
+                    </p>
+                  </div>
+                )}
+
+                {/* Behavioral CSV explanation */}
+                {backendError.type === "not_behavioral" && (
+                  <div className="mt-3 p-3 rounded-lg bg-[#1a1a24] border border-[#00ffc8]/20">
+                    <p className="text-[#00ffc8] text-xs font-medium mb-1">
+                      What is a Behavioral CSV?
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                      A behavioral CSV contains system call
+                      sequences recorded during program execution.
+                      It must have an Operation column with entries
+                      like ReadFile, WriteFile, RegSetValue,
+                      TCP Send, etc. Tools like Procmon or Cuckoo
+                      Sandbox generate these logs.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setBackendError(null)}
+                className="text-orange-400 hover:text-orange-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -278,7 +478,7 @@ export function UploadPage() {
             type="file"
             onChange={handleFileSelect}
             className="hidden"
-            accept=".png,.jpg,.jpeg,.bmp,.gif,.csv,.txt"
+            accept=".png,.jpg,.jpeg,.bmp,.csv"
           />
 
           <AnimatePresence mode="wait">
@@ -308,7 +508,8 @@ export function UploadPage() {
                   or click to browse from your computer
                 </p>
                 <p className="text-sm text-gray-500">
-                  Supports: PNG, JPG, CSV, TXT files
+                  Byteplot images (PNG, JPG, BMP) or behavioral
+                  data (CSV)
                 </p>
               </motion.div>
             ) : (
@@ -330,9 +531,9 @@ export function UploadPage() {
                         </p>
                         <p className="text-sm text-gray-400">
                           {formatFileSize(file.size)} •{" "}
-                          {getFileType(file.name) === "image"
-                            ? "Image File"
-                            : "CSV/Text File"}
+                          {fileType === "image"
+                            ? "Byteplot Image"
+                            : "Behavioral CSV"}
                         </p>
                       </div>
                       {!isUploading && !isAnalyzing && (
@@ -347,27 +548,39 @@ export function UploadPage() {
                         </button>
                       )}
                     </div>
+
                     {isUploading && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-400">Uploading...</span>
+                          <span className="text-gray-400">
+                            Uploading...
+                          </span>
                           <span className="text-[#00d9ff]">
                             {uploadProgress}%
                           </span>
                         </div>
-                        <Progress value={uploadProgress} className="h-2" />
+                        <Progress
+                          value={uploadProgress}
+                          className="h-2"
+                        />
                       </div>
                     )}
+
                     {isAnalyzing && (
                       <div className="flex items-center gap-2 text-[#00ffc8]">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm">Analyzing file...</span>
+                        <span className="text-sm">
+                          Analyzing file...
+                        </span>
                       </div>
                     )}
+
                     {!isUploading && !isAnalyzing && (
                       <div className="flex items-center gap-2 text-[#00ffc8]">
                         <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm">Ready for analysis</span>
+                        <span className="text-sm">
+                          Ready for analysis
+                        </span>
                       </div>
                     )}
                   </div>
@@ -495,26 +708,61 @@ export function UploadPage() {
             <ImageIcon className="w-5 h-5 text-[#00d9ff]" />
           </div>
           <div>
-            <h4 className="text-white font-medium mb-1">Image Files</h4>
+            <h4 className="text-white font-medium mb-1">
+              Byteplot Images
+            </h4>
             <p className="text-sm text-gray-400">
-              PNG, JPG, JPEG, BMP, GIF
+              PNG, JPG, JPEG, BMP
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              BytePlot visualizations → ResNet-18
+              Binary visualizations of executables → ResNet-18
             </p>
           </div>
         </div>
+
         <div className="flex items-start gap-3 p-5 rounded-xl bg-[#12121c]/50 border border-[#00ffc8]/10">
           <div className="w-10 h-10 rounded-lg bg-[#00ffc8]/10 border border-[#00ffc8]/30 flex items-center justify-center flex-shrink-0">
             <FileText className="w-5 h-5 text-[#00ffc8]" />
           </div>
           <div>
-            <h4 className="text-white font-medium mb-1">Data Files</h4>
+            <h4 className="text-white font-medium mb-1">
+              Behavioral Data
+            </h4>
             <p className="text-sm text-gray-400">
-              CSV, TXT (with Operation column)
+              CSV with Operation column
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Behavioral sequences → GRU Network
+              System call sequences → GRU Network
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Byteplot Info Box */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+        className="p-5 rounded-xl bg-[#12121c]/50 border border-[#00d9ff]/10"
+      >
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-[#00d9ff] flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-white font-medium mb-1 text-sm">
+              What files are supported?
+            </p>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              <span className="text-[#00d9ff]">
+                Byteplot images
+              </span>{" "}
+              are grayscale binary visualizations of executable
+              files (.exe, .dll). Each pixel represents one byte
+              value. Regular photos, selfies, and screenshots are{" "}
+              <span className="text-[#ff3366]">not supported</span>
+              . For behavioral analysis, upload a{" "}
+              <span className="text-[#00ffc8]">CSV file</span>{" "}
+              with system call sequences from tools like Procmon
+              or Cuckoo Sandbox.
             </p>
           </div>
         </div>
