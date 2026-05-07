@@ -41,7 +41,7 @@ interface LocationState {
   result: PredictionResponse;
   fileName: string;
   fileSize: string;
-  fileType: "image" | "csv" | "unknown";
+  fileType: "image" | "csv" | "binary" | "unknown";
 }
 
 export function ResultsPage() {
@@ -50,9 +50,7 @@ export function ResultsPage() {
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileSize, setFileSize] = useState<string>("");
-  const [fileType, setFileType] = useState<"image" | "csv" | "unknown">(
-    "unknown"
-  );
+  const [fileType, setFileType] = useState<"image" | "csv" | "binary" | "unknown">("unknown");
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(true);
   const [hasResult, setHasResult] = useState(false);
@@ -189,6 +187,8 @@ export function ResultsPage() {
         return "Image Analysis Only";
       case "text":
         return "Text/CSV Analysis Only";
+      case "binary_image":
+        return "Binary → Byteplot → ResNet-18";
       default:
         return "Unknown";
     }
@@ -498,6 +498,60 @@ export function ResultsPage() {
             </div>
           </motion.div>
 
+          {/* BytePlot Visualization */}
+          {result.byteplot_b64 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.35 }}
+              className="p-6 rounded-2xl bg-[#12121c]/80 border border-purple-500/20"
+            >
+              <h3 className="text-xl font-semibold mb-1 text-white flex items-center gap-2">
+                <span className="text-purple-400">⚙️</span> BytePlot Visualization
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Generated from binary file · width=256px · Nataraj method · ResNet-18
+              </p>
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <div className="flex-shrink-0">
+                  <img
+                    src={`data:image/png;base64,${result.byteplot_b64}`}
+                    alt="BytePlot"
+                    className="rounded-xl border border-purple-500/30 bg-black"
+                    style={{ imageRendering: "pixelated", width: "200px" }}
+                  />
+                  <p className="text-xs text-gray-600 text-center mt-1">{result.byteplot_size}</p>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="p-3 rounded-lg bg-[#1a1a24] border border-purple-500/10">
+                    <p className="text-purple-400 font-medium mb-1 text-xs uppercase tracking-wider">How it works</p>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      Each byte becomes one grayscale pixel (0–255), width=256.
+                      Resized to 224×224 and fed to ResNet-18 — same as Malex-200k training data.
+                    </p>
+                  </div>
+                  {result.ms_signed && (
+                    <div className="p-3 rounded-lg bg-[#00ffc8]/5 border border-[#00ffc8]/20">
+                      <p className="text-[#00ffc8] text-xs">
+                        ✓ Microsoft-signed — classified Benign without model inference.
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 rounded-lg bg-[#1a1a24] border border-purple-500/10">
+                      <p className="text-gray-500 text-xs">File size</p>
+                      <p className="text-white text-sm font-medium">{result.file_size_kb} KB</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#1a1a24] border border-purple-500/10">
+                      <p className="text-gray-500 text-xs">Byteplot grid</p>
+                      <p className="text-white text-sm font-medium">{result.byteplot_size ?? "256×?"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Radar Chart */}
           {featureImportanceData.length > 2 && (
             <motion.div
@@ -561,22 +615,22 @@ export function ResultsPage() {
           )}
 
           {/* Explainability Section */}
-{result.explainability && (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 1.5 }}
-  >
-    <ExplainabilityPanel
-      explainability={result.explainability}
-      prediction={result.prediction}
-      analysisType={result.analysis_type}
-      imageProb={result.image_probability}
-      textProb={result.text_probability}
-      finalProb={result.final_probability}
-    />
-  </motion.div>
-)}
+          {result.explainability && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.5 }}
+            >
+              <ExplainabilityPanel
+                explainability={result.explainability}
+                prediction={result.prediction}
+                analysisType={result.analysis_type}
+                imageProb={result.image_probability}
+                textProb={result.text_probability}
+                finalProb={result.final_probability}
+              />
+            </motion.div>
+          )}
 
           {/* Action Buttons — PDF + Scan Another + Dashboard */}
           <motion.div
@@ -706,7 +760,7 @@ export function ResultsPage() {
                           }`}
                         />
                         <div className="w-8 h-8 rounded-lg bg-[#12121c] border border-[#00d9ff]/10 flex items-center justify-center flex-shrink-0 text-sm">
-                          {item.fileType === "image" ? "🖼️" : "📄"}
+                          {item.fileType === "image" ? "🖼️" : item.fileType === "binary" ? "⚙️" : "📄"}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-white text-sm font-medium truncate">

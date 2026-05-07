@@ -12,6 +12,9 @@ import json
 import io
 import base64
 import os
+import math
+import subprocess
+import tempfile
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -139,7 +142,6 @@ def get_file_extension(filename: str) -> str:
 
 
 def compute_image_entropy(gray_array: np.ndarray) -> float:
-    """Compute Shannon entropy of grayscale image."""
     histogram, _ = np.histogram(
         gray_array.flatten(), bins=256, range=(0, 256)
     )
@@ -150,19 +152,9 @@ def compute_image_entropy(gray_array: np.ndarray) -> float:
 
 
 def is_byteplot(pil_image: Image.Image) -> dict:
-    """
-    Determine if image is a byteplot visualization.
-
-    Byteplots have TWO valid patterns:
-    1. Active byteplot: high edge complexity (malware code)
-    2. Sparse byteplot: nearly uniform (benign padded files)
-
-    Photos/screenshots: medium entropy but LOW edge complexity
-    """
     img_rgb = np.array(pil_image.convert("RGB")).astype(float)
     img_gray = np.array(pil_image.convert("L"))
 
-    # ── Color saturation
     r = img_rgb[:, :, 0]
     g = img_rgb[:, :, 1]
     b = img_rgb[:, :, 2]
@@ -171,13 +163,9 @@ def is_byteplot(pil_image: Image.Image) -> dict:
     gb_diff = np.mean(np.abs(g - b))
     avg_color_diff = float((rg_diff + rb_diff + gb_diff) / 3)
 
-    # ── Shannon entropy
     entropy = compute_image_entropy(img_gray)
-
-    # ── Pixel std dev
     std_dev = float(np.std(img_gray))
 
-    # ── Edge complexity (KEY METRIC)
     edges = np.array(
         pil_image.convert("L").filter(ImageFilter.FIND_EDGES)
     )
@@ -191,7 +179,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
     }
     print(f"Byteplot stats: {stats}")
 
-    # ── RULE 1: Colorful → definitely a photo
     if avg_color_diff > 8.0:
         return {
             "is_byteplot": False,
@@ -204,8 +191,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
             "stats": stats
         }
 
-    # ── RULE 2: Photo signature
-    # Photos: medium entropy + LOW edges (smooth gradients)
     if 3.0 < entropy < 7.5 and edge_ratio < 0.04:
         return {
             "is_byteplot": False,
@@ -220,8 +205,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
             "stats": stats
         }
 
-    # ── RULE 3: Active byteplot (malware-like)
-    # High edge complexity = real binary visualization
     if edge_ratio > 0.05 and avg_color_diff < 8.0:
         return {
             "is_byteplot": True,
@@ -232,8 +215,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
             "stats": stats
         }
 
-    # ── RULE 4: Sparse byteplot (benign padded files)
-    # Very low entropy + very low std + grayscale
     if entropy < 3.0 and std_dev < 30.0 and avg_color_diff < 3.0:
         return {
             "is_byteplot": True,
@@ -244,7 +225,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
             "stats": stats
         }
 
-    # ── RULE 5: Very high entropy grayscale
     if entropy > 7.0 and avg_color_diff < 8.0:
         return {
             "is_byteplot": True,
@@ -252,7 +232,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
             "stats": stats
         }
 
-    # ── DEFAULT: Reject uncertain
     return {
         "is_byteplot": False,
         "reason": (
@@ -268,8 +247,6 @@ def is_byteplot(pil_image: Image.Image) -> dict:
 
 
 def validate_image_file(file_storage) -> dict:
-    """Complete image file validation."""
-
     filename = file_storage.filename
 
     if not filename:
@@ -333,13 +310,8 @@ def validate_image_file(file_storage) -> dict:
 # ════════════════════════════════════════════════
 
 def detect_behavioral_csv(df: pd.DataFrame) -> dict:
-    """
-    Detect if CSV contains behavioral/syscall data.
-    """
-
     col_names_lower = [col.lower().strip() for col in df.columns]
 
-    # ── Check 1: Known operation column name
     has_operation_column = any(
         any(op_name in col for op_name in OPERATION_COLUMN_NAMES)
         for col in col_names_lower
@@ -373,7 +345,6 @@ def detect_behavioral_csv(df: pd.DataFrame) -> dict:
                         "operation_column": col
                     }
 
-    # ── Check 2: Scan all columns for behavioral keywords
     for col in df.columns:
         if df[col].dtype == object:
             sample = (
@@ -398,7 +369,6 @@ def detect_behavioral_csv(df: pd.DataFrame) -> dict:
                     "operation_column": col
                 }
 
-    # ── Check 3: Mostly numeric → generic data file
     numeric_col_count = df.select_dtypes(
         include=[np.number]
     ).shape[1]
@@ -427,15 +397,11 @@ def detect_behavioral_csv(df: pd.DataFrame) -> dict:
 
 
 def validate_csv_file(file_storage) -> dict:
-    """Complete CSV validation including behavioral detection."""
-
     filename = file_storage.filename
 
-    # Check 1: Filename
     if not filename:
         return {"valid": False, "error": "No filename provided."}
 
-    # Check 2: Extension
     ext = get_file_extension(filename)
     if ext not in ALLOWED_CSV_EXTENSIONS:
         return {
@@ -446,7 +412,6 @@ def validate_csv_file(file_storage) -> dict:
             )
         }
 
-    # Check 3: File size
     file_bytes = file_storage.read()
     file_storage.seek(0)
 
@@ -456,14 +421,12 @@ def validate_csv_file(file_storage) -> dict:
             "error": "CSV file exceeds 50MB limit."
         }
 
-    # Check 4: Not empty
     if len(file_bytes) < 10:
         return {
             "valid": False,
             "error": "CSV file is empty or too small."
         }
 
-    # Check 5: Can we parse it?
     df = None
     encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
     for encoding in encodings:
@@ -483,7 +446,6 @@ def validate_csv_file(file_storage) -> dict:
             )
         }
 
-    # Check 6: Minimum rows
     if len(df) < 5:
         return {
             "valid": False,
@@ -494,7 +456,6 @@ def validate_csv_file(file_storage) -> dict:
             )
         }
 
-    # Check 7: Is it behavioral data?
     print(f"CSV columns: {list(df.columns)}")
     print(f"CSV shape: {df.shape}")
 
@@ -774,7 +735,68 @@ def analyze_operations(operations, vocab):
 
 
 # ════════════════════════════════════════════════
-# ── ROUTES ──────────────────────────────────────
+# ── NEW: BINARY FILE SUPPORT ────────────────────
+# Added on top of original — does NOT touch /predict
+# ════════════════════════════════════════════════
+
+def binary_to_byteplot(file_bytes: bytes) -> Image.Image:
+    """
+    Convert any binary file to a grayscale byteplot image.
+    Same method used to generate the Malex-200k training dataset.
+    Width=256 matches dataset naming (_img_256).
+    """
+    raw    = np.frombuffer(file_bytes, dtype=np.uint8)
+    width  = 256
+    height = math.ceil(len(raw) / width)
+    padded = np.zeros(width * height, dtype=np.uint8)
+    padded[:len(raw)] = raw
+    return Image.fromarray(padded.reshape(height, width), mode="L")
+
+
+def check_ms_signature(file_bytes: bytes, filename: str) -> bool:
+    """
+    Check if file has a valid Microsoft Authenticode signature.
+    Windows only. Returns True = signed by Microsoft = safe to mark Benign.
+    """
+    if os.name != "nt":
+        return False
+    suffix   = os.path.splitext(filename)[1] or ".bin"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f'$s=(Get-AuthenticodeSignature "{tmp_path}");'
+             f'"STATUS:"+$s.Status+"||SUBJECT:"+$s.SignerCertificate.Subject'],
+            capture_output=True, text=True, timeout=10
+        )
+        out = result.stdout.strip()
+        return "STATUS:Valid" in out and "Microsoft" in out.split("SUBJECT:")[-1]
+    except Exception:
+        return False
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
+def img_to_b64_binary(img: Image.Image, max_h: int = 400) -> str:
+    """Resize tall byteplots for display, return base64 PNG."""
+    buf  = io.BytesIO()
+    disp = img.copy()
+    w, h = disp.size
+    if h > max_h:
+        disp = disp.resize((int(w * max_h / h), max_h), Image.NEAREST)
+    disp.save(buf, "PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+# ════════════════════════════════════════════════
+# ── ROUTES (ORIGINAL — UNTOUCHED) ───────────────
 # ════════════════════════════════════════════════
 
 @app.route("/")
@@ -789,12 +811,14 @@ def health_check():
         'model_loaded': True,
         'image_model': 'ResNet-18',
         'text_model': 'GRU',
+        'binary_support': True,          # new field — signals feature is active
         'timestamp': datetime.now().isoformat()
     })
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    # ── THIS FUNCTION IS IDENTICAL TO YOUR ORIGINAL ──
     print(f"\n── New Request ──────────────────────")
     print(f"Files: {list(request.files.keys())}")
 
@@ -817,7 +841,6 @@ def predict():
     operation_analysis = None
 
     try:
-        # ── IMAGE ───────────────────────────────
         if has_image:
             image_file = request.files["image"]
             print(f"Image: {image_file.filename}")
@@ -842,7 +865,6 @@ def predict():
                 image_transform(image).unsqueeze(0).to(DEVICE)
             )
 
-        # ── CSV ─────────────────────────────────
         if has_csv:
             csv_file = request.files["csv"]
             print(f"CSV: {csv_file.filename}")
@@ -916,7 +938,6 @@ def predict():
                 np.array(sequences, dtype=np.int32)
             ).to(DEVICE)
 
-        # ── MODEL ───────────────────────────────
         with torch.no_grad():
             img_out, txt_out = model(image_tensor, text_tensor)
 
@@ -948,7 +969,6 @@ def predict():
             label = "Malware" if final_prob > 0.5 else "Benign"
             print(f"Prediction: {label}")
 
-        # ── GRAD-CAM ────────────────────────────
         if has_image and image_tensor is not None:
             try:
                 cam_array, _ = generate_gradcam(
@@ -984,5 +1004,144 @@ def predict():
         }), 500
 
 
+# ════════════════════════════════════════════════
+# ── NEW ROUTE: /predict_binary ──────────────────
+# Accepts raw binary files (.exe .dll .sys .bin etc.)
+# Converts to byteplot → runs through image_model (ResNet-18)
+# Does NOT affect /predict at all
+# ════════════════════════════════════════════════
+
+@app.route("/predict_binary", methods=["POST"])
+def predict_binary():
+    """
+    New endpoint for raw binary file analysis.
+
+    POST a binary file in field "binary"
+    Returns same probability format as /predict for easy frontend use.
+
+    Flow:
+      binary file → byteplot (width=256, Nataraj method)
+                  → Resize(224,224) → ResNet-18 → prediction
+    """
+    print(f"\n── Binary File Request ──────────────")
+
+    if "binary" not in request.files:
+        return jsonify({
+            "error": "No file uploaded. Send binary file in field 'binary'."
+        }), 400
+
+    f        = request.files["binary"]
+    filename = f.filename or "upload.bin"
+    raw      = f.read()
+
+    if not raw:
+        return jsonify({"error": "File is empty."}), 400
+
+    print(f"Binary: {filename}  ({len(raw)//1024} KB)")
+
+    # ── Reject plain text files ───────────────────────────────────
+    try:
+        raw[:256].decode("utf-8")
+        # If we get here it decoded as text — likely a text file
+        non_printable = sum(
+            1 for b in raw[:256]
+            if b == 0 or b > 0x7E
+        )
+        if non_printable < 5:
+            return jsonify({
+                "error": (
+                    f"'{filename}' appears to be a plain text file. "
+                    "Please upload a binary executable "
+                    "(.exe, .dll, .sys, .bin, etc.)."
+                ),
+                "valid_file": False
+            }), 400
+    except UnicodeDecodeError:
+        pass  # Expected — real binaries can't decode as UTF-8
+
+    # ── Microsoft signature check (Windows only) ──────────────────
+    if check_ms_signature(raw, filename):
+        print(f"Microsoft-signed file — returning Benign")
+        byteplot_img = binary_to_byteplot(raw)
+        b64 = img_to_b64_binary(byteplot_img)
+        return jsonify({
+            "prediction":        "Benign",
+            "image_probability": 0.0,
+            "text_probability":  None,
+            "final_probability": 0.0,
+            "analysis_type":     "binary_image",
+            "valid_file":        True,
+            "ms_signed":         True,
+            "filename":          filename,
+            "file_size_kb":      round(len(raw) / 1024, 1),
+            "byteplot_b64":      b64,
+            "note": "Microsoft-signed binary — classified Benign without model inference.",
+            "explainability": {
+                "gradcam": None,
+                "operation_analysis": None
+            }
+        })
+
+    # ── Convert to byteplot ───────────────────────────────────────
+    try:
+        byteplot_img = binary_to_byteplot(raw)
+        b64 = img_to_b64_binary(byteplot_img)
+        print(f"Byteplot: 256×{byteplot_img.height} px")
+    except Exception as e:
+        return jsonify({"error": f"Byteplot conversion failed: {e}"}), 500
+
+    # ── Run through ResNet-18 (image_model path) ──────────────────
+    try:
+        img_rgb    = byteplot_img.convert("RGB")
+        img_tensor = image_transform(img_rgb).unsqueeze(0).to(DEVICE)
+
+        with torch.no_grad():
+            img_out, _ = model(img_tensor, None)
+            image_prob  = F.softmax(img_out, dim=1)[0][1].item()
+
+        final_prob = image_prob
+        label      = "Malware" if final_prob > 0.5 else "Benign"
+        print(f"Prediction: {label}  ({final_prob:.4f})")
+
+        # ── Grad-CAM for the byteplot ─────────────────────────────
+        gradcam_b64 = None
+        try:
+            cam_array, _ = generate_gradcam(img_tensor, model)
+            gradcam_b64  = cam_to_base64(cam_array, img_tensor)
+        except Exception as e:
+            print(f"Grad-CAM error: {e}")
+
+        return jsonify({
+            "prediction":        label,
+            "image_probability": round(image_prob, 4),
+            "text_probability":  None,
+            "final_probability": round(final_prob, 4),
+            "analysis_type":     "binary_image",
+            "valid_file":        True,
+            "ms_signed":         False,
+            "filename":          filename,
+            "file_size_kb":      round(len(raw) / 1024, 1),
+            "byteplot_size":     f"256×{byteplot_img.height}",
+            "byteplot_b64":      b64,
+            "explainability": {
+                "gradcam":            gradcam_b64,
+                "operation_analysis": None
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Model inference failed: {e}"}), 500
+
+
 if __name__ == "__main__":
+    print("=" * 55)
+    print("  RansomGuard — Hybrid Malware Detection API")
+    print(f"  Device : {DEVICE}")
+    print("  Routes :")
+    print("    POST /predict        — image + CSV (original)")
+    print("    POST /predict_binary — raw binary files (new)")
+    print("    GET  /health         — status check")
+    print("=" * 55)
     app.run(debug=True)
